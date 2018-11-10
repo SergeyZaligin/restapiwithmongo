@@ -8,7 +8,10 @@ const authRoutes = require('./routes/auth');
 const config = require('./config/keys');
 
 mongoose
-  .connect(config.mongoUrl)
+  .connect(
+    config.mongoUrl,
+    { useNewUrlParser: true },
+  )
   .then(() => {
     console.log('Connection mongodb success!!!');
   })
