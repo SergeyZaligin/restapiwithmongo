@@ -17,6 +17,12 @@ const updateTokens = (userId) => {
   }));
 };
 
+module.exports.isAuth = (req, res) => {
+  res.status(200).json({
+    message: 'Auth success!',
+  });
+};
+
 module.exports.signIn = async (req, res) => {
   const { email, password } = req.body;
 
@@ -39,11 +45,12 @@ module.exports.signIn = async (req, res) => {
   }
 };
 
-module.exports.refreshTokens = () => {
+module.exports.refreshTokens = (req, res) => {
   const { refreshToken } = req.body;
   let payload;
   try {
     payload = jwt.verify(refreshToken, secret);
+
     if (payload.type !== 'refresh') {
       res.status(400).json({ message: 'Invalid token.' });
       return;
@@ -52,7 +59,7 @@ module.exports.refreshTokens = () => {
     if (e instanceof jwt.TokenExpiredError) {
       res.status(400).json({ message: 'Token expired.' });
     } else if (e instanceof jwt.JsonWebTokenError) {
-      res.status(400).json({ message: 'Invalid token.' });
+      res.status(400).json({ message: 'Invalid tokensss.' });
     }
   }
 
