@@ -17,13 +17,13 @@ const updateTokens = (userId) => {
   }));
 };
 
-module.exports.isAuth = (req, res) => {
+const isAuth = (req, res) => {
   res.status(200).json({
     message: 'Auth success!',
   });
 };
 
-module.exports.signIn = async (req, res) => {
+const signIn = async (req, res) => {
   const { email, password } = req.body;
 
   const candidate = await User.findOne({ email });
@@ -45,12 +45,14 @@ module.exports.signIn = async (req, res) => {
   }
 };
 
-module.exports.refreshTokens = (req, res) => {
+const refreshTokens = (req, res) => {
   const { refreshToken } = req.body;
+  console.log('refreshToken===>', refreshToken);
   let payload;
+
   try {
     payload = jwt.verify(refreshToken, secret);
-
+    console.log('PAYLOAD===>', payload);
     if (payload.type !== 'refresh') {
       res.status(400).json({ message: 'Invalid token.' });
       return;
@@ -59,7 +61,7 @@ module.exports.refreshTokens = (req, res) => {
     if (e instanceof jwt.TokenExpiredError) {
       res.status(400).json({ message: 'Token expired.' });
     } else if (e instanceof jwt.JsonWebTokenError) {
-      res.status(400).json({ message: 'Invalid tokensss.' });
+      res.status(400).json({ message: `Invalid tokensss.${e.message}` });
     }
   }
 
@@ -74,4 +76,10 @@ module.exports.refreshTokens = (req, res) => {
     })
     .then(tokens => res.json(tokens))
     .catch(err => res.status(400).json({ message: err.message }));
+};
+
+module.exports = {
+  refreshTokens,
+  isAuth,
+  signIn,
 };
