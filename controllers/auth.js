@@ -1,24 +1,32 @@
 const mongoose = require('mongoose');
 const bCrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const config = require('../config/keys');
+const { secret } = require('../config/keys').jwt;
 
 const User = require('../models').user;
+const Token = require('../models').token;
+const authHelper = require('../helpers/authHelper');
+
+const updateTokens = (userId) => {
+  const accessToken = authHelper.generateAccessToken(userId);
+  const refreshToken = authHelper.generateRefreshToken();
+
+  return authHelper.replaceDbRefreshToken(refreshToken.id, userId).then(() => ({
+    accessToken,
+    refreshToken: refreshToken.token,
+  }));
+};
 
 module.exports.signIn = async (req, res) => {
   const { email, password } = req.body;
 
   const candidate = await User.findOne({ email });
-
+  console.log('candidate', candidate);
   if (candidate) {
     const isValid = bCrypt.compareSync(password, candidate.password);
-
+    console.log('isValid', isValid);
     if (isValid) {
-      const token = jwt.sign(
-        { id: candidate._id.toString(), role: candidate.role },
-        config.jwtSecret,
-      );
-      res.json({ token });
+      updateTokens(candidate._id).then(tokens => res.json(tokens));
     } else {
       res.status(401).json({
         message: 'Логин или пароль не совпадают',
@@ -29,30 +37,34 @@ module.exports.signIn = async (req, res) => {
       message: 'Пользователь не зарегистрирован',
     });
   }
-  // .exec()
-  // .then((user) => {
-  //   if (!user) {
-  //     res.status(401).json({ message: 'User does not exist.' });
-  //   }
-  //   const isValid = bCrypt.compareSync(password, user.password);
-  //   if (isValid) {
-  //     const token = jwt.sign(user._id.toString(), config.jwtSecret);
-  //     res.json({ token });
-  //   } else {
-  //     res.status(404).json({ message: 'Invalid access.' });
-  //   }
-  // })
-  // .catch(err => res.status(500).json({ message: err.message }));
 };
 
-module.exports.login = (req, res) => {
-  res.status(200).json({
-    login: true,
-  });
-};
+module.exports.refreshTokens = () => {
+  const { refreshToken } = req.body;
+  let payload;
+  try {
+    payload = jwt.verify(refreshToken, secret);
+    if (payload.type !== 'refresh') {
+      res.status(400).json({ message: 'Invalid token.' });
+      return;
+    }
+  } catch (e) {
+    if (e instanceof jwt.TokenExpiredError) {
+      res.status(400).json({ message: 'Token expired.' });
+    } else if (e instanceof jwt.JsonWebTokenError) {
+      res.status(400).json({ message: 'Invalid token.' });
+    }
+  }
 
-module.exports.registration = (req, res) => {
-  res.status(200).json({
-    registration: true,
-  });
+  Token.findOne({ tokenId: payload.id })
+    .exec()
+    .then((token) => {
+      if (token === null) {
+        throw new Error('Invalid token.');
+      }
+
+      return updateTokens(token.userId);
+    })
+    .then(tokens => res.json(tokens))
+    .catch(err => res.status(400).json({ message: err.message }));
 };
